@@ -36,34 +36,37 @@ function M.copy_context()
         relative_path = vim.fn.fnamemodify(current_file, ':.')
     end
     
-    local context_ref = '@' .. relative_path
-    
-    -- Check if we're in visual mode to get line selection
+    local base_ref = '@' .. relative_path
+
+    local function finish_copy(suffix)
+        local ref = base_ref .. (suffix or '')
+        vim.fn.setreg('+', ref)
+        vim.fn.setreg('"', ref)
+        vim.notify('Copied: ' .. ref, vim.log.levels.INFO)
+    end
+
+    -- Detect Visual/Select and defer to ensure fresh marks
     local mode = vim.fn.mode()
-    -- Handle Visual and Select modes (mouse selections often use Select)
     if mode == 'v' or mode == 'V' or mode == '\22' -- visual modes
         or mode == 's' or mode == 'S' or mode == '\19' -- select modes
     then
-        local start_line = vim.fn.line("'<")
-        local end_line = vim.fn.line("'>")
-
-        -- Normalize order to always be ascending
-        local first = math.min(start_line, end_line)
-        local last = math.max(start_line, end_line)
-        
-        if first == last then
-            context_ref = context_ref .. '#L' .. first
-        else
-            context_ref = context_ref .. '#L' .. first .. '-' .. last
-        end
+        -- leave visual/select so '< and '>' update
+        local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
+        vim.api.nvim_feedkeys(esc, 'x', false)
+        vim.schedule(function()
+            local start_line = vim.fn.line("'<")
+            local end_line = vim.fn.line("'>")
+            local first = math.min(start_line, end_line)
+            local last = math.max(start_line, end_line)
+            if first == last then
+                finish_copy('#L' .. first)
+            else
+                finish_copy('#L' .. first .. '-' .. last)
+            end
+        end)
+    else
+        finish_copy('')
     end
-    
-    -- Copy to clipboard
-    vim.fn.setreg('+', context_ref)
-    vim.fn.setreg('"', context_ref)
-    
-    -- Show notification
-    vim.notify('Copied: ' .. context_ref, vim.log.levels.INFO)
 end
 
 return M
