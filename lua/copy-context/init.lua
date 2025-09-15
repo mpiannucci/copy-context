@@ -40,14 +40,21 @@ function M.copy_context()
     
     -- Check if we're in visual mode to get line selection
     local mode = vim.fn.mode()
-    if mode == 'v' or mode == 'V' or mode == '\22' then -- \22 is visual block mode
+    -- Handle Visual and Select modes (mouse selections often use Select)
+    if mode == 'v' or mode == 'V' or mode == '\22' -- visual modes
+        or mode == 's' or mode == 'S' or mode == '\19' -- select modes
+    then
         local start_line = vim.fn.line("'<")
         local end_line = vim.fn.line("'>")
+
+        -- Normalize order to always be ascending
+        local first = math.min(start_line, end_line)
+        local last = math.max(start_line, end_line)
         
-        if start_line == end_line then
-            context_ref = context_ref .. '#L' .. start_line
+        if first == last then
+            context_ref = context_ref .. '#L' .. first
         else
-            context_ref = context_ref .. '#L' .. start_line .. '-' .. end_line
+            context_ref = context_ref .. '#L' .. first .. '-' .. last
         end
     end
     
