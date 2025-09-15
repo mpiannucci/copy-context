@@ -21,7 +21,7 @@ Add to your LazyVim plugin specs:
   },
   keys = {
     { "<leader>cf", mode = "n", desc = "Copy file context" },
-    { "<leader>cv", mode = { "n", "v" }, desc = "Copy selection/line context" },
+    { "<leader>cs", mode = { "n", "v" }, desc = "Copy selection/line context" },
   },
 }
 ```
@@ -58,8 +58,8 @@ Note: For non-Lazy setups, the plugin auto-calls `setup()` with defaults, so add
 ## Usage
 
 - `<leader>cf`: copies `@relative/path/to/file`
-- `<leader>cv` in Visual/Select: copies selected lines (e.g. `#L5` or `#L5-10`)
-- `<leader>cv` in Normal: copies current line (e.g. `#L5`)
+- `<leader>cs` in Visual/Select: copies selected lines (e.g. `#L5` or `#L5-10`)
+- `<leader>cs` in Normal: copies current line (e.g. `#L5`)
 - Command: `:CopyContext` (selection if present; otherwise file)
 
 The plugin writes to the system clipboard (`+`) and the unnamed register (`"`). A small notification displays what was copied.
@@ -73,7 +73,7 @@ vim.keymap.set("n", "<leader>cf", function()
   require("copy-context").copy_file()
 end, { desc = "Copy file context" })
 
-vim.keymap.set({ "n", "v" }, "<leader>cv", function()
+vim.keymap.set({ "n", "v" }, "<leader>cs", function()
   require("copy-context").copy_visual_or_line()
 end, { desc = "Copy selection/line context" })
 ```

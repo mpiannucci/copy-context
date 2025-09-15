@@ -13,7 +13,7 @@ function M.setup(opts)
         vim.keymap.set('n', '<leader>cf', function()
             M.copy_file()
         end, { desc = 'Copy file context' })
-        vim.keymap.set({ 'n', 'v' }, '<leader>cv', function()
+        vim.keymap.set({ 'n', 'v' }, '<leader>cs', function()
             M.copy_visual_or_line()
         end, { desc = 'Copy visual selection context' })
     end
