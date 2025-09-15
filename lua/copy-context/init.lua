@@ -45,25 +45,20 @@ function M.copy_context()
         vim.notify('Copied: ' .. ref, vim.log.levels.INFO)
     end
 
-    -- Detect Visual/Select and defer to ensure fresh marks
+    -- Detect Visual/Select and read positions without leaving the mode
     local mode = vim.fn.mode()
     if mode == 'v' or mode == 'V' or mode == '\22' -- visual modes
         or mode == 's' or mode == 'S' or mode == '\19' -- select modes
     then
-        -- leave visual/select so '< and '>' update
-        local esc = vim.api.nvim_replace_termcodes('<Esc>', true, false, true)
-        vim.api.nvim_feedkeys(esc, 'x', false)
-        vim.schedule(function()
-            local start_line = vim.fn.line("'<")
-            local end_line = vim.fn.line("'>")
-            local first = math.min(start_line, end_line)
-            local last = math.max(start_line, end_line)
-            if first == last then
-                finish_copy('#L' .. first)
-            else
-                finish_copy('#L' .. first .. '-' .. last)
-            end
-        end)
+        local vpos = vim.fn.getpos('v') -- {buf, lnum, col, off}
+        local cpos = vim.fn.getpos('.') -- cursor
+        local first = math.min(vpos[2], cpos[2])
+        local last = math.max(vpos[2], cpos[2])
+        if first == last then
+            finish_copy('#L' .. first)
+        else
+            finish_copy('#L' .. first .. '-' .. last)
+        end
     else
         finish_copy('')
     end
