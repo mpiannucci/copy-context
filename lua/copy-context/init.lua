@@ -2,12 +2,20 @@ local M = {}
 
 function M.setup(opts)
     opts = opts or {}
-    
-    -- Set up the copy context command
+
+    -- Set up user commands
     vim.api.nvim_create_user_command('CopyContext', function()
         M.copy_context()
     end, {})
-    
+
+    vim.api.nvim_create_user_command('CopyFileContext', function()
+        M.copy_file()
+    end, {})
+
+    vim.api.nvim_create_user_command('CopyLineContext', function()
+        M.copy_visual_or_line()
+    end, { range = true })
+
     -- Set up default keybindings if not disabled
     if not opts.disable_default_keymap then
         vim.keymap.set('n', '<leader>cf', function()
