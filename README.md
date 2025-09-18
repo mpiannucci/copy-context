@@ -11,31 +11,68 @@ Paths resolve relative to the project git root when available, otherwise relativ
 ## Installation
 
 ### LazyVim
-Add to your LazyVim plugin specs:
 
+#### Default configuration (uses `<leader>cf` and `<leader>cs`)
+```lua
+{
+  "mpiannucci/copy-context",
+}
+```
+
+#### With custom keybindings (disable defaults and define your own)
 ```lua
 {
   "mpiannucci/copy-context",
   opts = {
-    -- disable_default_keymap = false, -- set to true to disable default keymaps
+    disable_default_keymap = true,
   },
   keys = {
-    { "<leader>cf", mode = "n", desc = "Copy file context" },
-    { "<leader>cs", mode = { "n", "v" }, desc = "Copy selection/line context" },
+    { "<leader>cY", "<cmd>CopyFileContext<cr>", mode = "n", desc = "Copy file context" },
+    { "<leader>cy", "<cmd>CopyLineContext<cr>", mode = { "n", "v" }, desc = "Copy selection/line context" },
+  },
+}
+```
+
+#### Keep defaults and add additional keybindings
+```lua
+{
+  "mpiannucci/copy-context",
+  keys = {
+    { "<leader>cf", "<cmd>CopyFileContext<cr>", mode = "n", desc = "Copy file context" },
+    { "<leader>cs", "<cmd>CopyLineContext<cr>", mode = { "n", "v" }, desc = "Copy selection/line context" },
+    -- Add your additional keybindings here
+    { "<leader>cY", "<cmd>CopyFileContext<cr>", mode = "n", desc = "Copy file context (alt)" },
+    { "<leader>cy", "<cmd>CopyLineContext<cr>", mode = { "n", "v" }, desc = "Copy selection/line context (alt)" },
   },
 }
 ```
 
 ### lazy.nvim
 
+#### Default configuration
 ```lua
 require("lazy").setup({
   {
     "mpiannucci/copy-context",
-    -- optional configuration
+  },
+})
+```
+
+#### With custom keybindings
+```lua
+require("lazy").setup({
+  {
+    "mpiannucci/copy-context",
     opts = {
-      -- disable_default_keymap = true,
+      disable_default_keymap = true,
     },
+    config = function()
+      require("copy-context").setup({ disable_default_keymap = true })
+
+      -- Define your custom keybindings
+      vim.keymap.set("n", "<leader>cY", "<cmd>CopyFileContext<cr>", { desc = "Copy file context" })
+      vim.keymap.set({ "n", "v" }, "<leader>cy", "<cmd>CopyLineContext<cr>", { desc = "Copy selection/line context" })
+    end,
   },
 })
 ```
@@ -60,7 +97,10 @@ Note: For non-Lazy setups, the plugin auto-calls `setup()` with defaults, so add
 - `<leader>cf`: copies `@relative/path/to/file`
 - `<leader>cs` in Visual/Select: copies selected lines (e.g. `#L5` or `#L5-10`)
 - `<leader>cs` in Normal: copies current line (e.g. `#L5`)
-- Command: `:CopyContext` (selection if present; otherwise file)
+- Commands:
+  - `:CopyContext` (selection if present; otherwise file)
+  - `:CopyFileContext` (always copies file reference)
+  - `:CopyLineContext` (copies current line or selection)
 
 The plugin writes to the system clipboard (`+`) and the unnamed register (`"`). A small notification displays what was copied.
 
@@ -69,13 +109,8 @@ The plugin writes to the system clipboard (`+`) and the unnamed register (`"`). 
 - `disable_default_keymap` (boolean, default `false`): if `true`, no mappings are created. Define your own, e.g.:
 
 ```lua
-vim.keymap.set("n", "<leader>cf", function()
-  require("copy-context").copy_file()
-end, { desc = "Copy file context" })
-
-vim.keymap.set({ "n", "v" }, "<leader>cs", function()
-  require("copy-context").copy_visual_or_line()
-end, { desc = "Copy selection/line context" })
+vim.keymap.set("n", "<leader>cf", "<cmd>CopyFileContext<cr>", { desc = "Copy file context" })
+vim.keymap.set({ "n", "v" }, "<leader>cs", "<cmd>CopyLineContext<cr>", { desc = "Copy selection/line context" })
 ```
 
 ## License
