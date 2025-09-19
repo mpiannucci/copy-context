@@ -41,6 +41,20 @@ function M.setup(opts)
     end
 end
 
+-- Execute git command and return output or nil on failure
+local function git_cmd(cmd)
+    local output = vim.fn.system('git ' .. cmd .. ' 2>/dev/null'):gsub('\n', '')
+    if vim.v.shell_error == 0 and output ~= '' then
+        return output
+    end
+    return nil
+end
+
+-- Get tag name for a commit if it exists
+local function get_tag_for_commit(commit_ref)
+    return git_cmd('describe --exact-match --tags ' .. (commit_ref or 'HEAD'))
+end
+
 -- Build the base reference for the current buffer's path
 local function build_base_ref()
     local current_file = vim.fn.expand('%')
@@ -92,20 +106,6 @@ local function get_github_repo_info()
     end
 
     return nil, nil
-end
-
--- Execute git command and return output or nil on failure
-local function git_cmd(cmd)
-    local output = vim.fn.system('git ' .. cmd .. ' 2>/dev/null'):gsub('\n', '')
-    if vim.v.shell_error == 0 and output ~= '' then
-        return output
-    end
-    return nil
-end
-
--- Get tag name for a commit if it exists
-local function get_tag_for_commit(commit_ref)
-    return git_cmd('describe --exact-match --tags ' .. (commit_ref or 'HEAD'))
 end
 
 -- Build GitHub permalink
