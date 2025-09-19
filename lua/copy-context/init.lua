@@ -44,6 +44,10 @@ end
 -- Build the base reference for the current buffer's path
 local function build_base_ref()
     local current_file = vim.fn.expand('%')
+    if current_file == '' then
+        return '@[No file]'
+    end
+
     local git_root = vim.fn.system('git rev-parse --show-toplevel 2>/dev/null'):gsub('\n', '')
     local base_path
     if vim.v.shell_error == 0 and git_root ~= '' then
@@ -98,8 +102,11 @@ end
 -- Build GitHub permalink
 local function build_github_permalink()
     local current_file = vim.fn.expand('%')
-    local git_root = vim.fn.system('git rev-parse --show-toplevel 2>/dev/null'):gsub('\n', '')
+    if current_file == '' then
+        return nil, "No file open"
+    end
 
+    local git_root = vim.fn.system('git rev-parse --show-toplevel 2>/dev/null'):gsub('\n', '')
     if vim.v.shell_error ~= 0 or git_root == '' then
         return nil, "Not in a git repository"
     end
@@ -145,6 +152,27 @@ local function build_github_permalink()
     return string.format('https://github.com/%s/%s/blob/%s/%s', user, repo, commit_hash, relative_path), nil
 end
 
+-- Check if we're in visual/select mode
+local function is_visual_mode()
+    local mode = vim.fn.mode()
+    return mode == 'v' or mode == 'V' or mode == '\22' -- visual modes
+        or mode == 's' or mode == 'S' or mode == '\19' -- select modes
+end
+
+-- Get line range for current selection or current line
+local function get_line_range()
+    if is_visual_mode() then
+        local vpos = vim.fn.getpos('v')
+        local cpos = vim.fn.getpos('.')
+        local first = math.min(vpos[2], cpos[2])
+        local last = math.max(vpos[2], cpos[2])
+        return first, last
+    else
+        local line = vim.fn.line('.')
+        return line, line
+    end
+end
+
 -- Write to clipboards and notify
 local function finish_copy(ref)
     vim.fn.setreg('+', ref)
@@ -159,29 +187,19 @@ end
 
 function M.copy_visual_or_line()
     local base = build_base_ref()
-    local mode = vim.fn.mode()
-    if mode == 'v' or mode == 'V' or mode == '\22' -- visual modes
-        or mode == 's' or mode == 'S' or mode == '\19' -- select modes
-    then
-        local vpos = vim.fn.getpos('v')
-        local cpos = vim.fn.getpos('.')
-        local first = math.min(vpos[2], cpos[2])
-        local last = math.max(vpos[2], cpos[2])
-        if first == last then
-            finish_copy(base .. '#L' .. first)
-        else
-            finish_copy(base .. '#L' .. first .. '-' .. last)
-        end
+    local first, last = get_line_range()
+
+    if first == last then
+        finish_copy(base .. '#L' .. first)
     else
-        local line = vim.fn.line('.')
-        finish_copy(base .. '#L' .. line)
+        finish_copy(base .. '#L' .. first .. '-' .. last)
     end
 end
 
 function M.copy_github_file()
     local permalink, err = build_github_permalink()
     if not permalink then
-        vim.notify('GitHub file error: ' .. err, vim.log.levels.ERROR)
+        vim.notify('Error: ' .. err, vim.log.levels.ERROR)
         return
     end
 
@@ -191,33 +209,22 @@ end
 function M.copy_github_permalink()
     local permalink, err = build_github_permalink()
     if not permalink then
-        vim.notify('GitHub permalink error: ' .. err, vim.log.levels.ERROR)
+        vim.notify('Error: ' .. err, vim.log.levels.ERROR)
         return
     end
 
-    local mode = vim.fn.mode()
-    if mode == 'v' or mode == 'V' or mode == '\22' -- visual modes
-        or mode == 's' or mode == 'S' or mode == '\19' -- select modes
-    then
-        local vpos = vim.fn.getpos('v')
-        local cpos = vim.fn.getpos('.')
-        local first = math.min(vpos[2], cpos[2])
-        local last = math.max(vpos[2], cpos[2])
-        if first == last then
-            finish_copy(permalink .. '#L' .. first)
-        else
-            finish_copy(permalink .. '#L' .. first .. '-L' .. last)
-        end
+    local first, last = get_line_range()
+
+    if first == last then
+        finish_copy(permalink .. '#L' .. first)
     else
-        local line = vim.fn.line('.')
-        finish_copy(permalink .. '#L' .. line)
+        finish_copy(permalink .. '#L' .. first .. '-L' .. last)
     end
 end
 
 -- Backwards-compatible smart command: selection if present, else file
 function M.copy_context()
-    local mode = vim.fn.mode()
-    if mode == 'v' or mode == 'V' or mode == '\22' or mode == 's' or mode == 'S' or mode == '\19' then
+    if is_visual_mode() then
         return M.copy_visual_or_line()
     else
         return M.copy_file()
