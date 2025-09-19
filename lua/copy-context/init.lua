@@ -67,30 +67,40 @@ local function build_base_ref()
     return '@' .. relative_path
 end
 
--- Get GitHub remote URL and parse repo info
+-- Parse GitHub URL from remote URL string
+local function parse_github_url(remote_url)
+    if not remote_url then return nil, nil end
+
+    local user, repo
+    -- SSH format: git@github.com:user/repo.git
+    user, repo = remote_url:match('git@github%.com:([^/]+)/([^%.]+)%.git')
+
+    -- HTTPS format: https://github.com/user/repo.git
+    if not user then
+        user, repo = remote_url:match('https://github%.com/([^/]+)/([^%.]+)%.git')
+    end
+
+    -- HTTPS format without .git: https://github.com/user/repo
+    if not user then
+        user, repo = remote_url:match('https://github%.com/([^/]+)/([^/]+)/?$')
+    end
+
+    return user, repo
+end
+
+-- Get GitHub remote URL and parse repo info (optimized to check both remotes at once)
 local function get_github_repo_info()
-    -- Try upstream first, then origin
-    local remotes = {'upstream', 'origin'}
+    -- Get all remotes at once, then parse
+    local remotes_output = git_cmd('remote -v')
+    if not remotes_output then
+        return nil, nil
+    end
 
-    for _, remote in ipairs(remotes) do
-        local remote_url = git_cmd('remote get-url ' .. remote)
+    -- Look for upstream first, then origin
+    for _, remote_name in ipairs({'upstream', 'origin'}) do
+        local remote_url = remotes_output:match(remote_name .. '%s+([^%s]+)')
         if remote_url then
-            -- Parse GitHub URL (both SSH and HTTPS formats)
-            local user, repo
-
-            -- SSH format: git@github.com:user/repo.git
-            user, repo = remote_url:match('git@github%.com:([^/]+)/([^%.]+)%.git')
-
-            -- HTTPS format: https://github.com/user/repo.git
-            if not user then
-                user, repo = remote_url:match('https://github%.com/([^/]+)/([^%.]+)%.git')
-            end
-
-            -- HTTPS format without .git: https://github.com/user/repo
-            if not user then
-                user, repo = remote_url:match('https://github%.com/([^/]+)/([^/]+)/?$')
-            end
-
+            local user, repo = parse_github_url(remote_url)
             if user and repo then
                 return user, repo
             end
@@ -135,8 +145,9 @@ local function build_github_permalink()
                 -- Check if merge-base is on a tag
                 commit_ref = get_tag_for_commit(merge_base) or merge_base
             else
-                -- Fallback to upstream HEAD
-                commit_ref = git_cmd('rev-parse ' .. upstream_branch)
+                -- Fallback to upstream HEAD - but we can derive this from upstream_branch
+                -- Instead of another rev-parse, just use the upstream_branch ref directly
+                commit_ref = upstream_branch
             end
         end
 
