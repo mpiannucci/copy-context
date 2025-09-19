@@ -179,7 +179,6 @@ function M.copy_visual_or_line()
 end
 
 function M.copy_github_file()
-    vim.notify('Debug: copy_github_file called', vim.log.levels.INFO)
     local permalink, err = build_github_permalink()
     if not permalink then
         vim.notify('GitHub file error: ' .. err, vim.log.levels.ERROR)
@@ -190,7 +189,6 @@ function M.copy_github_file()
 end
 
 function M.copy_github_permalink()
-    vim.notify('Debug: copy_github_permalink called', vim.log.levels.INFO)
     local permalink, err = build_github_permalink()
     if not permalink then
         vim.notify('GitHub permalink error: ' .. err, vim.log.levels.ERROR)
