@@ -62,11 +62,17 @@ local function build_base_ref()
         return '@[No file]'
     end
 
-    local git_root = git_cmd('rev-parse --show-toplevel')
-    local base_path = git_root or vim.fn.getcwd()
+    -- Use simple git detection without expensive git commands
+    local git_root = vim.fn.system('git rev-parse --show-toplevel 2>/dev/null'):gsub('\n', '')
+    local base_path
+    if vim.v.shell_error == 0 and git_root ~= '' then
+        base_path = git_root
+    else
+        base_path = vim.fn.getcwd()
+    end
 
     local relative_path = vim.fn.fnamemodify(current_file, ':p')
-    if git_root and string.sub(relative_path, 1, #base_path) == base_path then
+    if string.sub(relative_path, 1, #base_path) == base_path then
         relative_path = string.sub(relative_path, #base_path + 2)
     else
         relative_path = vim.fn.fnamemodify(current_file, ':.')
