@@ -48,13 +48,8 @@ local function build_base_ref()
         return '@[No file]'
     end
 
-    local git_root = vim.fn.system('git rev-parse --show-toplevel 2>/dev/null'):gsub('\n', '')
-    local base_path
-    if vim.v.shell_error == 0 and git_root ~= '' then
-        base_path = git_root
-    else
-        base_path = vim.fn.getcwd()
-    end
+    local git_root = git_cmd('rev-parse --show-toplevel')
+    local base_path = git_root or vim.fn.getcwd()
 
     local relative_path = vim.fn.fnamemodify(current_file, ':p')
     if string.sub(relative_path, 1, #base_path) == base_path then
@@ -72,8 +67,8 @@ local function get_github_repo_info()
     local remotes = {'upstream', 'origin'}
 
     for _, remote in ipairs(remotes) do
-        local remote_url = vim.fn.system('git remote get-url ' .. remote .. ' 2>/dev/null'):gsub('\n', '')
-        if vim.v.shell_error == 0 and remote_url ~= '' then
+        local remote_url = git_cmd('remote get-url ' .. remote)
+        if remote_url then
             -- Parse GitHub URL (both SSH and HTTPS formats)
             local user, repo
 
@@ -99,6 +94,20 @@ local function get_github_repo_info()
     return nil, nil
 end
 
+-- Execute git command and return output or nil on failure
+local function git_cmd(cmd)
+    local output = vim.fn.system('git ' .. cmd .. ' 2>/dev/null'):gsub('\n', '')
+    if vim.v.shell_error == 0 and output ~= '' then
+        return output
+    end
+    return nil
+end
+
+-- Get tag name for a commit if it exists
+local function get_tag_for_commit(commit_ref)
+    return git_cmd('describe --exact-match --tags ' .. (commit_ref or 'HEAD'))
+end
+
 -- Build GitHub permalink
 local function build_github_permalink()
     local current_file = vim.fn.expand('%')
@@ -106,8 +115,8 @@ local function build_github_permalink()
         return nil, "No file open"
     end
 
-    local git_root = vim.fn.system('git rev-parse --show-toplevel 2>/dev/null'):gsub('\n', '')
-    if vim.v.shell_error ~= 0 or git_root == '' then
+    local git_root = git_cmd('rev-parse --show-toplevel')
+    if not git_root then
         return nil, "Not in a git repository"
     end
 
@@ -120,33 +129,28 @@ local function build_github_permalink()
     local commit_ref
 
     -- First, check if current HEAD is on a tag
-    local tag = vim.fn.system('git describe --exact-match --tags HEAD 2>/dev/null'):gsub('\n', '')
-    if vim.v.shell_error == 0 and tag ~= '' then
-        commit_ref = tag
+    commit_ref = get_tag_for_commit()
+    if commit_ref then
+        -- Found a tag for current HEAD, use it
     else
         -- Try to get the upstream commit if we're on a tracking branch
-        local upstream_branch = vim.fn.system('git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null'):gsub('\n', '')
-        if vim.v.shell_error == 0 and upstream_branch ~= '' then
+        local upstream_branch = git_cmd('rev-parse --abbrev-ref --symbolic-full-name @{upstream}')
+        if upstream_branch then
             -- We have an upstream, use the merge-base (common ancestor) or upstream HEAD
-            local merge_base = vim.fn.system('git merge-base HEAD ' .. upstream_branch .. ' 2>/dev/null'):gsub('\n', '')
-            if vim.v.shell_error == 0 and merge_base ~= '' then
+            local merge_base = git_cmd('merge-base HEAD ' .. upstream_branch)
+            if merge_base then
                 -- Check if merge-base is on a tag
-                local merge_base_tag = vim.fn.system('git describe --exact-match --tags ' .. merge_base .. ' 2>/dev/null'):gsub('\n', '')
-                if vim.v.shell_error == 0 and merge_base_tag ~= '' then
-                    commit_ref = merge_base_tag
-                else
-                    commit_ref = merge_base
-                end
+                commit_ref = get_tag_for_commit(merge_base) or merge_base
             else
                 -- Fallback to upstream HEAD
-                commit_ref = vim.fn.system('git rev-parse ' .. upstream_branch .. ' 2>/dev/null'):gsub('\n', '')
+                commit_ref = git_cmd('rev-parse ' .. upstream_branch)
             end
         end
 
         -- Fallback to current HEAD if upstream logic fails
-        if not commit_ref or commit_ref == '' or vim.v.shell_error ~= 0 then
-            commit_ref = vim.fn.system('git rev-parse HEAD 2>/dev/null'):gsub('\n', '')
-            if vim.v.shell_error ~= 0 or commit_ref == '' then
+        if not commit_ref then
+            commit_ref = git_cmd('rev-parse HEAD')
+            if not commit_ref then
                 return nil, "Could not get current commit hash"
             end
         end
