@@ -116,28 +116,39 @@ local function build_github_permalink()
         return nil, "Could not find GitHub remote (upstream or origin)"
     end
 
-    -- Get commit hash - try upstream branch first, then HEAD
-    local commit_hash
+    -- Get commit reference - prefer tags, then upstream branch, then HEAD
+    local commit_ref
 
-    -- Try to get the upstream commit if we're on a tracking branch
-    local upstream_branch = vim.fn.system('git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null'):gsub('\n', '')
-    if vim.v.shell_error == 0 and upstream_branch ~= '' then
-        -- We have an upstream, use the merge-base (common ancestor) or upstream HEAD
-        local merge_base = vim.fn.system('git merge-base HEAD ' .. upstream_branch .. ' 2>/dev/null'):gsub('\n', '')
-        if vim.v.shell_error == 0 and merge_base ~= '' then
-            -- Use merge-base if it exists (this is the common commit between local and upstream)
-            commit_hash = merge_base
-        else
-            -- Fallback to upstream HEAD
-            commit_hash = vim.fn.system('git rev-parse ' .. upstream_branch .. ' 2>/dev/null'):gsub('\n', '')
+    -- First, check if current HEAD is on a tag
+    local tag = vim.fn.system('git describe --exact-match --tags HEAD 2>/dev/null'):gsub('\n', '')
+    if vim.v.shell_error == 0 and tag ~= '' then
+        commit_ref = tag
+    else
+        -- Try to get the upstream commit if we're on a tracking branch
+        local upstream_branch = vim.fn.system('git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null'):gsub('\n', '')
+        if vim.v.shell_error == 0 and upstream_branch ~= '' then
+            -- We have an upstream, use the merge-base (common ancestor) or upstream HEAD
+            local merge_base = vim.fn.system('git merge-base HEAD ' .. upstream_branch .. ' 2>/dev/null'):gsub('\n', '')
+            if vim.v.shell_error == 0 and merge_base ~= '' then
+                -- Check if merge-base is on a tag
+                local merge_base_tag = vim.fn.system('git describe --exact-match --tags ' .. merge_base .. ' 2>/dev/null'):gsub('\n', '')
+                if vim.v.shell_error == 0 and merge_base_tag ~= '' then
+                    commit_ref = merge_base_tag
+                else
+                    commit_ref = merge_base
+                end
+            else
+                -- Fallback to upstream HEAD
+                commit_ref = vim.fn.system('git rev-parse ' .. upstream_branch .. ' 2>/dev/null'):gsub('\n', '')
+            end
         end
-    end
 
-    -- Fallback to current HEAD if upstream logic fails
-    if not commit_hash or commit_hash == '' or vim.v.shell_error ~= 0 then
-        commit_hash = vim.fn.system('git rev-parse HEAD 2>/dev/null'):gsub('\n', '')
-        if vim.v.shell_error ~= 0 or commit_hash == '' then
-            return nil, "Could not get current commit hash"
+        -- Fallback to current HEAD if upstream logic fails
+        if not commit_ref or commit_ref == '' or vim.v.shell_error ~= 0 then
+            commit_ref = vim.fn.system('git rev-parse HEAD 2>/dev/null'):gsub('\n', '')
+            if vim.v.shell_error ~= 0 or commit_ref == '' then
+                return nil, "Could not get current commit hash"
+            end
         end
     end
 
@@ -149,7 +160,7 @@ local function build_github_permalink()
         return nil, "File is not within git repository"
     end
 
-    return string.format('https://github.com/%s/%s/blob/%s/%s', user, repo, commit_hash, relative_path), nil
+    return string.format('https://github.com/%s/%s/blob/%s/%s', user, repo, commit_ref, relative_path), nil
 end
 
 -- Check if we're in visual/select mode
