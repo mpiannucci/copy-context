@@ -52,7 +52,7 @@ local function build_base_ref()
     local base_path = git_root or vim.fn.getcwd()
 
     local relative_path = vim.fn.fnamemodify(current_file, ':p')
-    if string.sub(relative_path, 1, #base_path) == base_path then
+    if git_root and string.sub(relative_path, 1, #base_path) == base_path then
         relative_path = string.sub(relative_path, #base_path + 2)
     else
         relative_path = vim.fn.fnamemodify(current_file, ':.')
@@ -134,6 +134,7 @@ local function build_github_permalink()
         -- Found a tag for current HEAD, use it
     else
         -- Try to get the upstream commit if we're on a tracking branch
+        -- Note: this might fail in detached HEAD state (when checked out to a tag)
         local upstream_branch = git_cmd('rev-parse --abbrev-ref --symbolic-full-name @{upstream}')
         if upstream_branch then
             -- We have an upstream, use the merge-base (common ancestor) or upstream HEAD
@@ -147,7 +148,7 @@ local function build_github_permalink()
             end
         end
 
-        -- Fallback to current HEAD if upstream logic fails
+        -- Fallback to current HEAD if upstream logic fails (common in detached HEAD)
         if not commit_ref then
             commit_ref = git_cmd('rev-parse HEAD')
             if not commit_ref then
@@ -214,7 +215,7 @@ end
 function M.copy_github_file()
     local permalink, err = build_github_permalink()
     if not permalink then
-        vim.notify('Error: ' .. err, vim.log.levels.ERROR)
+        vim.notify('GitHub file error: ' .. (err or 'Unknown error'), vim.log.levels.ERROR)
         return
     end
 
@@ -224,7 +225,7 @@ end
 function M.copy_github_permalink()
     local permalink, err = build_github_permalink()
     if not permalink then
-        vim.notify('Error: ' .. err, vim.log.levels.ERROR)
+        vim.notify('GitHub permalink error: ' .. (err or 'Unknown error'), vim.log.levels.ERROR)
         return
     end
 
